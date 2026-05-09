@@ -18,6 +18,7 @@ exposes just enough surface to handle JSON endpoints — kept tiny on purpose.
 import Dict exposing (Dict)
 import Json.Decode as D
 import Json.Encode as E
+import Types exposing (BackendModel)
 
 
 type alias HttpRequest =
@@ -81,9 +82,9 @@ process :
     (String -> String -> Cmd msg)
     -> (E.Value -> Cmd msg)
     -> E.Value
-    -> (E.Value -> HttpRequest -> backendModel -> ( RPCResult, backendModel, Cmd msg ))
-    -> { a | userModel : backendModel }
-    -> ( { a | userModel : backendModel }, Cmd msg )
+    -> (E.Value -> HttpRequest -> BackendModel -> ( RPCResult, BackendModel, Cmd msg ))
+    -> { a | userModel : BackendModel }
+    -> ( { a | userModel : BackendModel }, Cmd msg )
 process log rpcOut rawReq handler model =
     case D.decodeValue requestDecoder rawReq of
         Ok request ->
