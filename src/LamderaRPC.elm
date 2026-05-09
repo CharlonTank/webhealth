@@ -54,18 +54,12 @@ requestDecoder =
         (D.field "e" D.string)
         (D.field "r" D.string)
         (D.field "h" (D.dict D.string))
-        (D.field "b" rawBodyDecoder)
-
-
-rawBodyDecoder : D.Decoder HttpBody
-rawBodyDecoder =
-    D.oneOf
-        [ D.field "i" (D.list D.int) |> D.map BodyBytes
-        , D.field "j" D.value |> D.map BodyJson
-        , D.field "v" D.value |> D.map BodyJson
-        , D.field "vs" D.string |> D.map BodyString
-        , D.field "st" D.string |> D.map BodyString
-        ]
+        (D.oneOf
+            [ D.field "i" (D.list D.int) |> D.map BodyBytes
+            , D.field "j" D.value |> D.map BodyJson
+            , D.field "st" D.string |> D.map BodyString
+            ]
+        )
 
 
 {-| Top-level RPC dispatcher. Lamdera injects:
