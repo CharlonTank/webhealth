@@ -354,7 +354,7 @@ probeStatus url =
         , url = url
         , body = Http.emptyBody
         , resolver = statusResolver
-        , timeout = Just 6000
+        , timeout = Just 12000
         }
         |> Task.onError (\_ -> Task.succeed Nothing)
 

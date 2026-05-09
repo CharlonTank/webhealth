@@ -880,11 +880,31 @@ renderBlockingCheck ctx =
 
 compressionCheck : Ctx -> Check
 compressionCheck ctx =
-    case header "content-encoding" ctx of
-        Just enc ->
+    let
+        cdnFingerprints =
+            [ ( "cf-ray", "Cloudflare" )
+            , ( "cf-cache-status", "Cloudflare" )
+            , ( "x-served-by", "Fastly" )
+            , ( "x-vercel-id", "Vercel" )
+            , ( "x-amz-cf-id", "CloudFront" )
+            , ( "x-nf-request-id", "Netlify" )
+            , ( "x-cache", "CDN" )
+            ]
+
+        detectedCdn =
+            cdnFingerprints
+                |> List.filter (\( h, _ ) -> header h ctx /= Nothing)
+                |> List.head
+                |> Maybe.map Tuple.second
+    in
+    case ( header "content-encoding" ctx, detectedCdn ) of
+        ( Just enc, _ ) ->
             check "compression" "Compression" Pass ("Text-like assets appear compressed (" ++ enc ++ ").") Nothing
 
-        Nothing ->
+        ( Nothing, Just cdn ) ->
+            check "compression" "Compression" Pass ("Behind " ++ cdn ++ " — content is auto-compressed for browsers (Content-Encoding stripped by audit's HTTP client).") Nothing
+
+        ( Nothing, Nothing ) ->
             check "compression" "Compression" Warning "No Content-Encoding header. Page may not be compressed." (Just "Enable Brotli or gzip on text/HTML/JS/CSS responses.")
 
 
