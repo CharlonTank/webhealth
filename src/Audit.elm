@@ -42,7 +42,8 @@ buildReport now inflight =
             }
 
         categories =
-            [ metaCategory ctx
+            [ metaListCategory ctx
+            , metaCategory ctx
             , contentCategory ctx
             , technicalCategory ctx
             , accessibilityCategory ctx
@@ -217,6 +218,40 @@ diagnosticsCategory ctx =
           , severity = Pass
           , summary = String.fromInt topNodes ++ " top nodes / " ++ String.fromInt allElems ++ " elements"
           , affectedResources = [ "first tags: " ++ firstTags ]
+          , howToFix = Nothing
+          , extra = []
+          }
+        ]
+    }
+
+
+
+metaListCategory : Ctx -> Category
+metaListCategory ctx =
+    let
+        metaNames =
+            HQ.findAll (hasTag "meta") ctx.nodes
+                |> List.map
+                    (\n ->
+                        let
+                            label =
+                                HQ.attr "name" n
+                                    |> orElse (HQ.attr "property" n)
+                                    |> Maybe.withDefault "(no name/property)"
+
+                            content =
+                                HQ.attr "content" n |> Maybe.withDefault ""
+                        in
+                        label ++ " = " ++ String.left 60 content
+                    )
+    in
+    { name = "Meta tags found"
+    , checks =
+        [ { id = "meta-list"
+          , name = "All meta tags"
+          , severity = Pass
+          , summary = String.fromInt (List.length metaNames) ++ " meta tags parsed"
+          , affectedResources = metaNames
           , howToFix = Nothing
           , extra = []
           }
