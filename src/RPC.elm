@@ -160,20 +160,53 @@ runAuditCmd url =
             Time.now
                 |> Task.andThen
                     (\t0 ->
-                        fetchPage url
+                        Task.map2 Tuple.pair (fetchPage url) (fetchAsBot url)
                             |> Task.andThen
-                                (\res ->
+                                (\( res, botBody ) ->
                                     case res of
                                         Err err ->
                                             Task.succeed (Err err)
 
                                         Ok html ->
-                                            runProbesAndBuild url t0 html
+                                            runProbesAndBuild url t0 html botBody
                                                 |> Task.map Ok
                                 )
                     )
     in
     Task.perform (AuditFinished "rpc") task
+
+
+fetchAsBot : String -> Task.Task Never (Maybe String)
+fetchAsBot url =
+    Http.task
+        { method = "GET"
+        , headers =
+            [ Http.header "User-Agent" "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+            , Http.header "Accept" "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            , Http.header "Accept-Encoding" "gzip, deflate, br"
+            ]
+        , url = url
+        , body = Http.emptyBody
+        , resolver = botStringResolver
+        , timeout = Just 12000
+        }
+        |> Task.onError (\_ -> Task.succeed Nothing)
+
+
+botStringResolver : Http.Resolver Never (Maybe String)
+botStringResolver =
+    Http.stringResolver
+        (\response ->
+            case response of
+                Http.GoodStatus_ _ body ->
+                    Ok (Just body)
+
+                Http.BadStatus_ _ body ->
+                    Ok (Just body)
+
+                _ ->
+                    Ok Nothing
+        )
 
 
 fetchPage : String -> Task.Task Never (Result String HtmlFetch)
@@ -233,8 +266,8 @@ stringResolver =
         )
 
 
-runProbesAndBuild : String -> Time.Posix -> HtmlFetch -> Task.Task Never AuditReport
-runProbesAndBuild url t0 html =
+runProbesAndBuild : String -> Time.Posix -> HtmlFetch -> Maybe String -> Task.Task Never AuditReport
+runProbesAndBuild url t0 html botBody =
     let
         finalUrl =
             html.finalUrl
@@ -242,8 +275,22 @@ runProbesAndBuild url t0 html =
         origin =
             originOf finalUrl
 
+        -- Use the bot body for link extraction when the primary body is a
+        -- shell — otherwise we'd probe zero links on bot-aware-SSR sites.
+        bodyForLinks =
+            case botBody of
+                Just bb ->
+                    if String.length (String.trim html.body) < String.length (String.trim bb) then
+                        bb
+
+                    else
+                        html.body
+
+                Nothing ->
+                    html.body
+
         links =
-            Audit.parseLinks finalUrl html.body
+            Audit.parseLinks finalUrl bodyForLinks
     in
     Task.map5
         (\robots sitemap favicon internals externals ->
@@ -283,6 +330,7 @@ runProbesAndBuild url t0 html =
                                     List.map2 Tuple.pair links.external probes.externals
                                         |> Dict.fromList
                                 }
+                                botBody
                         )
             )
 

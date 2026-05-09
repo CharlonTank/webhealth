@@ -1,4 +1,4 @@
-module Audit exposing (buildReport, parseLinks)
+module Audit exposing (RenderingMode(..), buildReport, parseLinks)
 
 import Dict exposing (Dict)
 import Html.Parser exposing (Node(..))
@@ -10,8 +10,14 @@ import Types exposing (..)
 import Url
 
 
-buildReport : Time.Posix -> InflightAudit -> AuditReport
-buildReport now inflight =
+type RenderingMode
+    = FullyRendered
+    | BotAwareSsr
+    | ClientSideOnly
+
+
+buildReport : Time.Posix -> InflightAudit -> Maybe String -> AuditReport
+buildReport now inflight botBody =
     let
         body =
             inflight.htmlBody |> Maybe.withDefault ""
@@ -22,8 +28,22 @@ buildReport now inflight =
         finalUrl =
             inflight.finalUrl |> Maybe.withDefault inflight.url
 
-        nodes =
+        primaryNodes =
             HQ.parse body
+
+        botNodes =
+            botBody |> Maybe.map HQ.parse
+
+        renderingMode =
+            detectRenderingMode primaryNodes botNodes
+
+        effectiveNodes =
+            case renderingMode of
+                BotAwareSsr ->
+                    Maybe.withDefault primaryNodes botNodes
+
+                _ ->
+                    primaryNodes
 
         ctx =
             { url = inflight.url
@@ -32,17 +52,19 @@ buildReport now inflight =
             , body = body
             , bodyLower = String.toLower body
             , headers = normalizeHeaders headers
-            , nodes = nodes
+            , nodes = effectiveNodes
             , htmlMillis = inflight.htmlMillis |> Maybe.withDefault 0
             , robots = inflight.robots
             , sitemap = inflight.sitemap
             , favicon = inflight.favicon
             , externalLinks = inflight.externalLinks
             , internalLinks = inflight.internalLinks
+            , renderingMode = renderingMode
             }
 
         categories =
-            [ metaCategory ctx
+            [ renderingCategory ctx
+            , metaCategory ctx
             , contentCategory ctx
             , technicalCategory ctx
             , accessibilityCategory ctx
@@ -105,7 +127,79 @@ type alias Ctx =
     , favicon : Maybe ProbeResult
     , externalLinks : Dict String (Maybe Int)
     , internalLinks : Dict String (Maybe Int)
+    , renderingMode : RenderingMode
     }
+
+
+detectRenderingMode : List Node -> Maybe (List Node) -> RenderingMode
+detectRenderingMode primaryNodes botNodesM =
+    if isWellStructured primaryNodes then
+        FullyRendered
+
+    else
+        case botNodesM of
+            Just botNodes ->
+                if isWellStructured botNodes then
+                    BotAwareSsr
+
+                else
+                    ClientSideOnly
+
+            Nothing ->
+                ClientSideOnly
+
+
+isWellStructured : List Node -> Bool
+isWellStructured nodes =
+    let
+        hasH1 =
+            HQ.findFirst (hasTag "h1") nodes /= Nothing
+
+        landmarkCount =
+            [ "header", "nav", "main", "footer" ]
+                |> List.filter (\t -> HQ.findFirst (hasTag t) nodes /= Nothing)
+                |> List.length
+    in
+    hasH1 || landmarkCount >= 2
+
+
+renderingCategory : Ctx -> Category
+renderingCategory ctx =
+    { name = "Rendering Architecture"
+    , checks = [ renderingModeCheck ctx ]
+    }
+
+
+renderingModeCheck : Ctx -> Check
+renderingModeCheck ctx =
+    case ctx.renderingMode of
+        FullyRendered ->
+            check "rendering-mode"
+                "Rendering Mode"
+                Pass
+                "Server-rendered HTML — visible to all clients including search engines, social previews, and JS-disabled browsers."
+                Nothing
+
+        BotAwareSsr ->
+            { id = "rendering-mode"
+            , name = "Rendering Mode"
+            , severity = Pass
+            , summary = "Bot-aware SSR detected — crawlers receive pre-rendered HTML, JS-enabled users hydrate client-side."
+            , affectedResources = []
+            , howToFix = Nothing
+            , extra =
+                [ ( "Note"
+                  , "The site serves different HTML based on User-Agent. SEO and link-preview crawlers (Googlebot, Bingbot, ChatGPT-User, ClaudeBot, Twitter/Facebook/LinkedIn) are healthy. The structural checks below evaluate the bot view; performance checks evaluate the user view."
+                  )
+                ]
+            }
+
+        ClientSideOnly ->
+            check "rendering-mode"
+                "Rendering Mode"
+                Warning
+                "Client-side rendering only — initial HTML is empty, content depends on JavaScript execution."
+                (Just "Crawlers without JS execution (most AI crawlers, RSS readers, link previewers) see no content. Add SSR/SSG, or a bot-aware Cloudflare Worker that injects HTML for known crawler User-Agents.")
 
 
 normalizeHeaders : List ( String, String ) -> List ( String, String )

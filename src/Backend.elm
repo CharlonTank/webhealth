@@ -127,15 +127,15 @@ runAudit url clientId _ =
             Time.now
                 |> Task.andThen
                     (\t0 ->
-                        fetchPage url
+                        Task.map2 Tuple.pair (fetchPage url) (fetchAsBot url)
                             |> Task.andThen
-                                (\res ->
+                                (\( res, botBody ) ->
                                     case res of
                                         Err err ->
                                             Task.succeed (Err err)
 
                                         Ok html ->
-                                            runProbesAndBuild url t0 html
+                                            runProbesAndBuild url t0 html botBody
                                                 |> Task.map Ok
                                 )
                             |> Task.onError (\_ -> Task.succeed (Err "Failed to fetch the page."))
@@ -144,8 +144,41 @@ runAudit url clientId _ =
     Task.perform (AuditFinished clientId) task
 
 
-runProbesAndBuild : String -> Time.Posix -> HtmlFetch -> Task Never AuditReport
-runProbesAndBuild url t0 html =
+fetchAsBot : String -> Task Never (Maybe String)
+fetchAsBot url =
+    Http.task
+        { method = "GET"
+        , headers =
+            [ Http.header "User-Agent" "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+            , Http.header "Accept" "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            , Http.header "Accept-Encoding" "gzip, deflate, br"
+            ]
+        , url = url
+        , body = Http.emptyBody
+        , resolver = botStringResolver
+        , timeout = Just 12000
+        }
+        |> Task.onError (\_ -> Task.succeed Nothing)
+
+
+botStringResolver : Http.Resolver Never (Maybe String)
+botStringResolver =
+    Http.stringResolver
+        (\response ->
+            case response of
+                Http.GoodStatus_ _ body ->
+                    Ok (Just body)
+
+                Http.BadStatus_ _ body ->
+                    Ok (Just body)
+
+                _ ->
+                    Ok Nothing
+        )
+
+
+runProbesAndBuild : String -> Time.Posix -> HtmlFetch -> Maybe String -> Task Never AuditReport
+runProbesAndBuild url t0 html botBody =
     let
         finalUrl =
             html.finalUrl
@@ -153,8 +186,20 @@ runProbesAndBuild url t0 html =
         origin =
             originOf finalUrl
 
+        bodyForLinks =
+            case botBody of
+                Just bb ->
+                    if String.length (String.trim html.body) < String.length (String.trim bb) then
+                        bb
+
+                    else
+                        html.body
+
+                Nothing ->
+                    html.body
+
         links =
-            Audit.parseLinks finalUrl html.body
+            Audit.parseLinks finalUrl bodyForLinks
 
         probesTask =
             Task.map5
@@ -200,7 +245,7 @@ runProbesAndBuild url t0 html =
                                             |> Dict.fromList
                                     }
                             in
-                            Audit.buildReport now inflight
+                            Audit.buildReport now inflight botBody
                         )
             )
 
