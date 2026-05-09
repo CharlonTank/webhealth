@@ -36,7 +36,8 @@ type HttpBody
 
 
 type RPCResult
-    = ResultJson E.Value
+    = ResultBytes (List Int)
+    | ResultJson E.Value
     | ResultString String
     | ResultRaw Int String (List ( String, String )) HttpBody
 
@@ -104,6 +105,9 @@ process log rpcOut rawReq handler model =
 
                 responseCmd =
                     case result of
+                        ResultBytes ints ->
+                            respond 200 "OK" [] ( "i", E.list E.int ints )
+
                         ResultJson value ->
                             respond 200 "OK" [] ( "v", value )
 

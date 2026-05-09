@@ -22,6 +22,30 @@ lamdera_handleEndpoints _ req model =
         "audit" ->
             handleAudit req model
 
+        "ping" ->
+            ( ResultJson
+                (E.object
+                    [ ( "ok", E.bool True )
+                    , ( "endpoint", E.string req.endpoint )
+                    , ( "bodyType"
+                      , E.string
+                            (case req.body of
+                                BodyJson _ ->
+                                    "json"
+
+                                BodyString _ ->
+                                    "string"
+
+                                BodyBytes _ ->
+                                    "bytes"
+                            )
+                      )
+                    ]
+                )
+            , model
+            , Cmd.none
+            )
+
         _ ->
             ( ResultRaw 404 "Not Found" [] (BodyString ("Unknown endpoint: " ++ req.endpoint))
             , model
