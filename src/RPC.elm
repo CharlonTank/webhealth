@@ -65,11 +65,7 @@ handleAudit req model =
                     ( jsonError 400 "Invalid URL — include http:// or https://", model, Cmd.none )
 
                 Just url ->
-                    let
-                        host =
-                            domainOf url
-                    in
-                    case freshFor host model.history of
+                    case freshFor url model.history of
                         Just entry ->
                             ( ResultJson
                                 (E.object
@@ -151,13 +147,9 @@ domainOf url =
 
 
 freshFor : String -> List HistoryEntry -> Maybe HistoryEntry
-freshFor host entries =
-    -- Returns the most recent entry for this host that's less than 60s old.
-    -- We don't have a "now" here without a Cmd, so we trust the list's order
-    -- (most recent first) and just return the latest match if any. Caller
-    -- treats stale entries as still useful.
+freshFor url entries =
     entries
-        |> List.filter (\e -> domainOf e.url == host)
+        |> List.filter (\e -> e.url == url || e.finalUrl == url)
         |> List.head
 
 
