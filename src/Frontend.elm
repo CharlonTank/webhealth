@@ -266,7 +266,7 @@ orElse fallback m =
 
 view : Model -> Browser.Document FrontendMsg
 view model =
-    { title = "WebHealth — open-source site audit"
+    { title = "WebHealth - open-source site audit"
     , body =
         [ Html.node "style" [] [ Html.text styles ]
         , Html.div [ A.class "app" ]
@@ -350,7 +350,7 @@ viewHome model =
         [ Html.section [ A.class "hero" ]
             [ Html.h1 [ A.class "hero-title" ] [ Html.text "How healthy is your website?" ]
             , Html.p [ A.class "hero-sub" ]
-                [ Html.text "Audit any URL — pre-launch or live — for technical, SEO, and accessibility issues."
+                [ Html.text "Audit any URL - pre-launch or live - for technical, SEO, and accessibility issues."
                 ]
             , viewUrlForm model
             ]
@@ -381,10 +381,10 @@ viewApiSection =
             [ Html.text "POST a URL, poll until ready. JSON response. No auth, no API key." ]
         , Html.h3 [] [ Html.text "Trigger an audit" ]
         , codeBlock "curl -X POST https://webhealth.lamdera.app/_r/audit \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"https://your-site.com\"}'"
-        , Html.h3 [] [ Html.text "Response — audit running" ]
+        , Html.h3 [] [ Html.text "Response - audit running" ]
         , codeBlock "{\"status\":\"running\",\"retry_in_seconds\":8,\"url\":\"https://your-site.com\"}"
-        , Html.h3 [] [ Html.text "Response — audit ready (poll the same endpoint after ~10 seconds)" ]
-        , codeBlock "{\n  \"status\": \"ready\",\n  \"report\": {\n    \"url\": \"https://your-site.com\",\n    \"finalUrl\": \"https://your-site.com/\",\n    \"score\": 97,\n    \"passed\": 33, \"warnings\": 1, \"errors\": 0,\n    \"perceivedLoadMs\": 317, \"totalTestMs\": 4788,\n    \"categories\": [\n      { \"name\": \"Rendering Architecture\", \"checks\": [\n          { \"id\": \"rendering-mode\", \"name\": \"Rendering Mode\",\n            \"severity\": \"pass\",\n            \"summary\": \"Server-rendered HTML — visible to all clients.\",\n            \"affectedResources\": [], \"howToFix\": null, \"extra\": [] }\n      ] },\n      { \"name\": \"Meta Information\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Content Structure\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Technical Optimization\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Accessibility Basics\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Social & Rich Results\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Links Analysis\", \"checks\": [ /* … */ ] }\n    ]\n  }\n}"
+        , Html.h3 [] [ Html.text "Response - audit ready (poll the same endpoint after ~10 seconds)" ]
+        , codeBlock "{\n  \"status\": \"ready\",\n  \"report\": {\n    \"url\": \"https://your-site.com\",\n    \"finalUrl\": \"https://your-site.com/\",\n    \"score\": 97,\n    \"passed\": 33, \"warnings\": 1, \"errors\": 0,\n    \"perceivedLoadMs\": 317, \"totalTestMs\": 4788,\n    \"categories\": [\n      { \"name\": \"Rendering Architecture\", \"checks\": [\n          { \"id\": \"rendering-mode\", \"name\": \"Rendering Mode\",\n            \"severity\": \"pass\",\n            \"summary\": \"Server-rendered HTML - visible to all clients.\",\n            \"affectedResources\": [], \"howToFix\": null, \"extra\": [] }\n      ] },\n      { \"name\": \"Meta Information\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Content Structure\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Technical Optimization\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Accessibility Basics\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Social & Rich Results\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Links Analysis\", \"checks\": [ /* … */ ] }\n    ]\n  }\n}"
         , Html.h3 [] [ Html.text "One-liner: poll until ready" ]
         , codeBlock "while r=$(curl -s -X POST https://webhealth.lamdera.app/_r/audit \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"https://your-site.com\"}') \\\n  && [ \"$(echo \"$r\" | jq -r .status)\" != \"ready\" ]\ndo sleep 8; done\necho \"$r\" | jq .report"
         , Html.h3 [] [ Html.text "Each individual check has this shape" ]
@@ -398,7 +398,7 @@ viewApiSection =
                     , Html.text " then bump the number."
                     ]
                 , Html.li []
-                    [ Html.text "The audit fetches your page twice in parallel — once with a browser User-Agent, once with Googlebot — to detect bot-cloaked SSR. Structural checks (h1, headings, landmarks) operate on whichever view actually has content." ]
+                    [ Html.text "The audit fetches your page twice in parallel - once with a browser User-Agent, once with Googlebot - to detect bot-cloaked SSR. Structural checks (h1, headings, landmarks) operate on whichever view actually has content." ]
                 , Html.li []
                     [ Html.text "Severity values are "
                     , Html.code [] [ Html.text "\"pass\"" ]
@@ -409,7 +409,7 @@ viewApiSection =
                     , Html.text ". Score is a 0-100 weighted average."
                     ]
                 , Html.li []
-                    [ Html.text "Lighthouse-style runtime metrics (LCP, CLS, TBT, JS errors) are not available — those need a headless browser. Everything here is server-side static analysis." ]
+                    [ Html.text "Lighthouse-style runtime metrics (LCP, CLS, TBT, JS errors) are not available - those need a headless browser. Everything here is server-side static analysis." ]
                 ]
             ]
         ]

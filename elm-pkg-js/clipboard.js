@@ -1,4 +1,4 @@
-// Clipboard handler — listens on the `copyToClipboard` port from Elm and
+// Clipboard handler - listens on the `copyToClipboard` port from Elm and
 // writes the given text to the user's clipboard, falling back to a hidden
 // textarea + execCommand on browsers that lack the modern API.
 

@@ -177,14 +177,14 @@ renderingModeCheck ctx =
             check "rendering-mode"
                 "Rendering Mode"
                 Pass
-                "Server-rendered HTML — visible to all clients including search engines, social previews, and JS-disabled browsers."
+                "Server-rendered HTML - visible to all clients including search engines, social previews, and JS-disabled browsers."
                 Nothing
 
         BotAwareSsr ->
             { id = "rendering-mode"
             , name = "Rendering Mode"
             , severity = Pass
-            , summary = "Bot-aware SSR detected — crawlers receive pre-rendered HTML, JS-enabled users hydrate client-side."
+            , summary = "Bot-aware SSR detected - crawlers receive pre-rendered HTML, JS-enabled users hydrate client-side."
             , affectedResources = []
             , howToFix = Nothing
             , extra =
@@ -198,7 +198,7 @@ renderingModeCheck ctx =
             check "rendering-mode"
                 "Rendering Mode"
                 Warning
-                "Client-side rendering only — initial HTML is empty, content depends on JavaScript execution."
+                "Client-side rendering only - initial HTML is empty, content depends on JavaScript execution."
                 (Just "Crawlers without JS execution (most AI crawlers, RSS readers, link previewers) see no content. Add SSR/SSG, or a bot-aware Cloudflare Worker that injects HTML for known crawler User-Agents.")
 
 
@@ -1002,7 +1002,7 @@ compressionCheck ctx =
             check "compression" "Compression" Pass ("Text-like assets appear compressed (" ++ enc ++ ").") Nothing
 
         ( Nothing, Just cdn ) ->
-            check "compression" "Compression" Pass ("Behind " ++ cdn ++ " — content is auto-compressed for browsers (Content-Encoding stripped by audit's HTTP client).") Nothing
+            check "compression" "Compression" Pass ("Behind " ++ cdn ++ " - content is auto-compressed for browsers (Content-Encoding stripped by audit's HTTP client).") Nothing
 
         ( Nothing, Nothing ) ->
             check "compression" "Compression" Warning "No Content-Encoding header. Page may not be compressed." (Just "Enable Brotli or gzip on text/HTML/JS/CSS responses.")
@@ -1159,7 +1159,7 @@ landmarksCheck ctx =
 
 tapTargetCheck : Ctx -> Check
 tapTargetCheck _ =
-    -- Real measurement requires layout — surface as informational.
+    -- Real measurement requires layout - surface as informational.
     check "tap-targets" "Tap Target Size" Pass "Tap target measurement requires a rendered viewport (skipped in OSS build)." Nothing
 
 

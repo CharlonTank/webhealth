@@ -62,7 +62,7 @@ handleAudit req model =
         Ok rawUrl ->
             case sanitizeUrl rawUrl of
                 Nothing ->
-                    ( jsonError 400 "Invalid URL — include http:// or https://", model, Cmd.none )
+                    ( jsonError 400 "Invalid URL - include http:// or https://", model, Cmd.none )
 
                 Just url ->
                     case freshFor url model.history of
@@ -276,7 +276,7 @@ runProbesAndBuild url t0 html botBody =
             originOf finalUrl
 
         -- Use the bot body for link extraction when the primary body is a
-        -- shell — otherwise we'd probe zero links on bot-aware-SSR sites.
+        -- shell - otherwise we'd probe zero links on bot-aware-SSR sites.
         bodyForLinks =
             case botBody of
                 Just bb ->

@@ -11,7 +11,7 @@ module LamderaRPC exposing
 
 Lamdera's runtime decodes incoming HTTP RPC requests into a JSON value with a
 fixed wire schema and expects responses encoded the same way. This module
-exposes just enough surface to handle JSON endpoints — kept tiny on purpose.
+exposes just enough surface to handle JSON endpoints - kept tiny on purpose.
 
 -}
 

@@ -1,6 +1,6 @@
 # WebHealth
 
-An open-source website health auditor — works pre-launch or on a live site. Written in Elm + Lamdera.
+An open-source website health auditor - works pre-launch or on a live site. Written in Elm + Lamdera.
 
 Drop in a URL, get a single-page report covering meta tags, content structure, security headers, accessibility basics, social previews, and link health. Recent audits are kept in shared history.
 
@@ -15,7 +15,7 @@ Drop in a URL, get a single-page report covering meta tags, content structure, s
 
 ## Out of scope (for now)
 
-Lighthouse-style runtime measurements (LCP, CLS, TBT, JS runtime errors) need a headless Chrome and aren't covered here — everything is server-side static analysis driven from Elm.
+Lighthouse-style runtime measurements (LCP, CLS, TBT, JS runtime errors) need a headless Chrome and aren't covered here - everything is server-side static analysis driven from Elm.
 
 ## Use it from CLI / Claude / agents
 
@@ -78,7 +78,7 @@ Then open http://localhost:8000.
 
 ## Stack
 
-- **Lamdera** (full-stack Elm) — frontend + backend in one binary
+- **Lamdera** (full-stack Elm) - frontend + backend in one binary
 - `hecrj/html-parser` for parsing target HTML
 - `elm/http` for fetching pages, robots, sitemap, favicon, and link probes
 
@@ -86,12 +86,12 @@ Then open http://localhost:8000.
 
 ```
 src/
-  Frontend.elm    — UI, router, history view
-  Backend.elm     — orchestrates the audit, stores recent history
-  Audit.elm       — checks (one function per check)
-  HtmlQuery.elm   — small DOM query helpers
-  FixPrompt.elm   — builds the LLM remediation prompt
-  Types.elm       — shared model (Frontend / Backend / wire)
+  Frontend.elm    - UI, router, history view
+  Backend.elm     - orchestrates the audit, stores recent history
+  Audit.elm       - checks (one function per check)
+  HtmlQuery.elm   - small DOM query helpers
+  FixPrompt.elm   - builds the LLM remediation prompt
+  Types.elm       - shared model (Frontend / Backend / wire)
 ```
 
 ## License

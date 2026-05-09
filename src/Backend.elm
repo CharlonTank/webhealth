@@ -83,7 +83,7 @@ updateFromFrontend _ clientId msg model =
         RequestAudit raw ->
             case sanitizeUrl raw of
                 Nothing ->
-                    ( model, Lamdera.sendToFrontend clientId (AuditFailed "Invalid URL — please include http:// or https://.") )
+                    ( model, Lamdera.sendToFrontend clientId (AuditFailed "Invalid URL - please include http:// or https://.") )
 
                 Just url ->
                     ( model

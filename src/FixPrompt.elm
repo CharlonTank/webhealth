@@ -65,4 +65,4 @@ formatIssue idx c =
                 Nothing ->
                     ""
     in
-    n ++ ". [" ++ sev ++ "] " ++ c.name ++ " — " ++ c.summary ++ affected ++ fix
+    n ++ ". [" ++ sev ++ "] " ++ c.name ++ " - " ++ c.summary ++ affected ++ fix
