@@ -831,6 +831,7 @@ renderBlockingCheck ctx =
         styles =
             HQ.findAll (hasTag "link") ctx.nodes
                 |> List.filter (\n -> HQ.attr "rel" n |> Maybe.map String.toLower |> (==) (Just "stylesheet"))
+                |> List.filter (\n -> HQ.attr "media" n /= Just "print")
                 |> List.filterMap (HQ.attr "href")
 
         blockingScripts =
@@ -839,7 +840,12 @@ renderBlockingCheck ctx =
                     (\n ->
                         case HQ.attr "src" n of
                             Just _ ->
-                                HQ.attr "async" n == Nothing && HQ.attr "defer" n == Nothing
+                                HQ.attr "async" n
+                                    == Nothing
+                                    && HQ.attr "defer" n
+                                    == Nothing
+                                    && (HQ.attr "type" n |> Maybe.map String.toLower)
+                                    /= Just "module"
 
                             Nothing ->
                                 False
@@ -1223,6 +1229,7 @@ summarizeLinks id name probes =
     let
         entries =
             Dict.toList probes
+                |> List.filter (\( u, _ ) -> not (isBotHostileHost u))
 
         broken =
             entries
@@ -1236,11 +1243,11 @@ summarizeLinks id name probes =
                                 True
                     )
     in
-    if Dict.isEmpty probes then
+    if List.isEmpty entries then
         check id name Pass "No links to probe." Nothing
 
     else if List.isEmpty broken then
-        check id name Pass ("Checked " ++ String.fromInt (Dict.size probes) ++ " links. No broken links found.") Nothing
+        check id name Pass ("Checked " ++ String.fromInt (List.length entries) ++ " links. No broken links found.") Nothing
 
     else
         { id = id
@@ -1262,6 +1269,32 @@ summarizeLinks id name probes =
         , howToFix = Just "Replace dead URLs or point to working alternatives."
         , extra = []
         }
+
+
+{-| Hosts that aggressively block server-to-server probes (return 4xx/5xx to
+non-browser User-Agents). A failed probe here doesn't mean the link is broken
+for real users, so we skip them to avoid false positives.
+-}
+isBotHostileHost : String -> Bool
+isBotHostileHost url =
+    let
+        host =
+            Url.fromString url |> Maybe.map .host |> Maybe.withDefault ""
+
+        blocked =
+            [ "linkedin.com"
+            , "www.linkedin.com"
+            , "x.com"
+            , "twitter.com"
+            , "www.twitter.com"
+            , "instagram.com"
+            , "www.instagram.com"
+            , "facebook.com"
+            , "www.facebook.com"
+            , "medium.com"
+            ]
+    in
+    List.member host blocked
 
 
 linkFormatCheck : Ctx -> Check

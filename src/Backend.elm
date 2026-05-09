@@ -248,7 +248,12 @@ fetchPage url =
             (\t0 ->
                 Http.task
                     { method = "GET"
-                    , headers = [ Http.header "User-Agent" "is-ready-for-launch-oss/0.1 (audit)" ]
+                    , headers =
+            [ Http.header "User-Agent" "Mozilla/5.0 (compatible; WebHealth/0.1; +https://webhealth.lamdera.app)"
+            , Http.header "Accept" "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            , Http.header "Accept-Encoding" "gzip, deflate, br"
+            , Http.header "Accept-Language" "en-US,en;q=0.9"
+            ]
                     , url = url
                     , body = Http.emptyBody
                     , resolver = stringResolver
@@ -302,7 +307,12 @@ probeUrl : String -> Task Never (Maybe ProbeResult)
 probeUrl url =
     Http.task
         { method = "GET"
-        , headers = [ Http.header "User-Agent" "is-ready-for-launch-oss/0.1 (audit)" ]
+        , headers =
+            [ Http.header "User-Agent" "Mozilla/5.0 (compatible; WebHealth/0.1; +https://webhealth.lamdera.app)"
+            , Http.header "Accept" "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            , Http.header "Accept-Encoding" "gzip, deflate, br"
+            , Http.header "Accept-Language" "en-US,en;q=0.9"
+            ]
         , url = url
         , body = Http.emptyBody
         , resolver = probeResolver url
@@ -338,7 +348,12 @@ probeStatus : String -> Task Never (Maybe Int)
 probeStatus url =
     Http.task
         { method = "GET"
-        , headers = [ Http.header "User-Agent" "is-ready-for-launch-oss/0.1 (audit)" ]
+        , headers =
+            [ Http.header "User-Agent" "Mozilla/5.0 (compatible; WebHealth/0.1; +https://webhealth.lamdera.app)"
+            , Http.header "Accept" "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            , Http.header "Accept-Encoding" "gzip, deflate, br"
+            , Http.header "Accept-Language" "en-US,en;q=0.9"
+            ]
         , url = url
         , body = Http.emptyBody
         , resolver = statusResolver
