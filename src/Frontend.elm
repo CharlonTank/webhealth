@@ -860,7 +860,7 @@ viewScoreChart entries =
                 14
 
             padBottom =
-                32
+                48
 
             innerW =
                 width - padLeft - padRight
@@ -900,17 +900,46 @@ viewScoreChart entries =
 
             yLabels =
                 [ 0, 25, 50, 75, 100 ]
+
+            nXTicks =
+                4
+
+            xTickTimes =
+                List.range 0 nXTicks
+                    |> List.map (\i -> tMin + tSpan * i // nXTicks)
+
+            xTickFormat =
+                if tSpan < 24 * 3600 * 1000 then
+                    formatTimeOnly
+
+                else if tSpan < 31 * 24 * 3600 * 1000 then
+                    formatMonthDay
+
+                else
+                    formatMonthDayYear
+
+            chartBaselineY =
+                height - padBottom + 1
         in
         Html.section [ A.class "score-chart" ]
             [ Html.h2 [] [ Html.text "Score over time" ]
             , Svg.svg
                 [ SA.viewBox ("0 0 " ++ String.fromInt width ++ " " ++ String.fromInt height)
                 , SA.class "chart-svg"
-                , SA.preserveAspectRatio "none"
                 ]
                 (List.concat
                     [ List.map (gridLine padLeft (width - padRight) yOf) yLabels
                     , List.map (yAxisLabel padLeft yOf) yLabels
+                    , [ Svg.line
+                            [ SA.x1 (String.fromInt padLeft)
+                            , SA.x2 (String.fromInt (width - padRight))
+                            , SA.y1 (String.fromInt chartBaselineY)
+                            , SA.y2 (String.fromInt chartBaselineY)
+                            , SA.class "chart-axis"
+                            ]
+                            []
+                      ]
+                    , List.map (xTick xOf chartBaselineY xTickFormat) xTickTimes
                     , [ Svg.polyline
                             [ SA.points polylinePts
                             , SA.class "chart-line"
@@ -922,6 +951,108 @@ viewScoreChart entries =
                     ]
                 )
             ]
+
+
+xTick : (Int -> Float) -> Int -> (Time.Posix -> String) -> Int -> Svg.Svg msg
+xTick xOf baselineY fmt t =
+    let
+        x =
+            xOf t
+    in
+    Svg.g [ SA.class "chart-x-tick" ]
+        [ Svg.line
+            [ SA.x1 (formatFloat x)
+            , SA.x2 (formatFloat x)
+            , SA.y1 (String.fromInt baselineY)
+            , SA.y2 (String.fromInt (baselineY + 5))
+            , SA.class "chart-axis"
+            ]
+            []
+        , Svg.text_
+            [ SA.x (formatFloat x)
+            , SA.y (String.fromInt (baselineY + 18))
+            , SA.textAnchor "middle"
+            , SA.class "chart-axis-label"
+            ]
+            [ Svg.text (fmt (Time.millisToPosix t)) ]
+        ]
+
+
+formatTimeOnly : Time.Posix -> String
+formatTimeOnly t =
+    let
+        zone =
+            Time.utc
+
+        hour =
+            String.fromInt (Time.toHour zone t) |> String.padLeft 2 '0'
+
+        minute =
+            String.fromInt (Time.toMinute zone t) |> String.padLeft 2 '0'
+    in
+    hour ++ ":" ++ minute
+
+
+formatMonthDay : Time.Posix -> String
+formatMonthDay t =
+    let
+        zone =
+            Time.utc
+    in
+    monthShort (Time.toMonth zone t) ++ " " ++ String.fromInt (Time.toDay zone t)
+
+
+formatMonthDayYear : Time.Posix -> String
+formatMonthDayYear t =
+    let
+        zone =
+            Time.utc
+    in
+    monthShort (Time.toMonth zone t)
+        ++ " "
+        ++ String.fromInt (Time.toDay zone t)
+        ++ ", "
+        ++ String.fromInt (Time.toYear zone t)
+
+
+monthShort : Time.Month -> String
+monthShort m =
+    case m of
+        Time.Jan ->
+            "Jan"
+
+        Time.Feb ->
+            "Feb"
+
+        Time.Mar ->
+            "Mar"
+
+        Time.Apr ->
+            "Apr"
+
+        Time.May ->
+            "May"
+
+        Time.Jun ->
+            "Jun"
+
+        Time.Jul ->
+            "Jul"
+
+        Time.Aug ->
+            "Aug"
+
+        Time.Sep ->
+            "Sep"
+
+        Time.Oct ->
+            "Oct"
+
+        Time.Nov ->
+            "Nov"
+
+        Time.Dec ->
+            "Dec"
 
 
 gridLine : Int -> Int -> (Int -> Float) -> Int -> Svg.Svg msg
@@ -1432,8 +1563,9 @@ button { font: inherit; cursor: pointer; }
   color: var(--text-dim);
   font-weight: 600;
 }
-.chart-svg { width: 100%; height: 220px; display: block; }
+.chart-svg { width: 100%; height: auto; max-height: 280px; display: block; }
 .chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
 .chart-axis-label {
   fill: var(--text-dim);
   font-size: 11px;
