@@ -170,6 +170,30 @@ diagnosticsCategory ctx =
 
                 Err errs ->
                     "fail (" ++ String.fromInt (List.length errs) ++ " deadEnds)"
+
+        stripped =
+            HQ.stripScriptsAndStyles ctx.body
+
+        strippedRun =
+            case Html.Parser.run stripped of
+                Ok ns ->
+                    "ok (" ++ String.fromInt (List.length ns) ++ ")"
+
+                Err errs ->
+                    "fail (" ++ String.fromInt (List.length errs) ++ " deadEnds)"
+
+        firstDeadEnd =
+            case Html.Parser.run stripped of
+                Ok _ ->
+                    "n/a"
+
+                Err errs ->
+                    case List.head errs of
+                        Just de ->
+                            "row=" ++ String.fromInt de.row ++ " col=" ++ String.fromInt de.col
+
+                        Nothing ->
+                            "n/a"
     in
     { name = "Diagnostics"
     , checks =
@@ -184,7 +208,7 @@ diagnosticsCategory ctx =
         , { id = "diag-parse"
           , name = "Parser results"
           , severity = Pass
-          , summary = "runDocument: " ++ runDocResult ++ " · run: " ++ runResult
+          , summary = "runDocument: " ++ runDocResult ++ " · run: " ++ runResult ++ " · stripped+run: " ++ strippedRun ++ " · stripped len: " ++ String.fromInt (String.length stripped) ++ " · firstErr: " ++ firstDeadEnd
           , affectedResources = []
           , howToFix = Nothing
           , extra = []
