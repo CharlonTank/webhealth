@@ -949,6 +949,19 @@ yAxisLabel padLeft yOf score =
 
 chartDot : ( Float, Float, HistoryEntry ) -> Svg.Svg FrontendMsg
 chartDot ( x, y, entry ) =
+    let
+        label =
+            formatDateTime entry.scannedAt ++ "  ·  " ++ String.fromInt entry.score ++ "/100"
+
+        labelWidth =
+            toFloat (String.length label * 6 + 20)
+
+        tooltipX =
+            x - labelWidth / 2
+
+        tooltipY =
+            y - 36
+    in
     Svg.g
         [ SA.class ("chart-dot chart-dot--" ++ scoreBucket entry.score)
         , Svg.Events.onClick (OpenHistoryEntry entry)
@@ -960,14 +973,81 @@ chartDot ( x, y, entry ) =
             , SA.class "chart-dot-circle"
             ]
             []
-        , Svg.title []
-            [ Svg.text
-                (String.fromInt entry.score
-                    ++ " · "
-                    ++ entry.url
-                )
+        , Svg.g [ SA.class "chart-tooltip" ]
+            [ Svg.rect
+                [ SA.x (formatFloat tooltipX)
+                , SA.y (formatFloat tooltipY)
+                , SA.width (formatFloat labelWidth)
+                , SA.height "22"
+                , SA.rx "4"
+                , SA.class "chart-tooltip-bg"
+                ]
+                []
+            , Svg.text_
+                [ SA.x (formatFloat x)
+                , SA.y (formatFloat (tooltipY + 15))
+                , SA.textAnchor "middle"
+                , SA.class "chart-tooltip-text"
+                ]
+                [ Svg.text label ]
             ]
         ]
+
+
+formatDateTime : Time.Posix -> String
+formatDateTime t =
+    let
+        zone =
+            Time.utc
+
+        month =
+            case Time.toMonth zone t of
+                Time.Jan ->
+                    "Jan"
+
+                Time.Feb ->
+                    "Feb"
+
+                Time.Mar ->
+                    "Mar"
+
+                Time.Apr ->
+                    "Apr"
+
+                Time.May ->
+                    "May"
+
+                Time.Jun ->
+                    "Jun"
+
+                Time.Jul ->
+                    "Jul"
+
+                Time.Aug ->
+                    "Aug"
+
+                Time.Sep ->
+                    "Sep"
+
+                Time.Oct ->
+                    "Oct"
+
+                Time.Nov ->
+                    "Nov"
+
+                Time.Dec ->
+                    "Dec"
+
+        day =
+            String.fromInt (Time.toDay zone t)
+
+        hour =
+            String.fromInt (Time.toHour zone t) |> String.padLeft 2 '0'
+
+        minute =
+            String.fromInt (Time.toMinute zone t) |> String.padLeft 2 '0'
+    in
+    month ++ " " ++ day ++ " " ++ hour ++ ":" ++ minute
 
 
 formatFloat : Float -> String
@@ -1372,6 +1452,22 @@ button { font: inherit; cursor: pointer; }
 .chart-dot--ok    .chart-dot-circle { stroke: #fbbf24; }
 .chart-dot--warn  .chart-dot-circle { stroke: var(--warn); }
 .chart-dot--bad   .chart-dot-circle { stroke: var(--err); }
+.chart-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.chart-dot:hover .chart-tooltip { opacity: 1; }
+.chart-tooltip-bg {
+  fill: var(--surface-2);
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.chart-tooltip-text {
+  fill: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
 
 .site-history h2 {
   margin: 0 0 12px;
