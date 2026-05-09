@@ -52,6 +52,7 @@ init url key =
       , now = Time.millisToPosix 0
       , excludedIssues = []
       , promptCopied = False
+      , hoveredDot = Nothing
       }
     , Cmd.batch
         [ Lamdera.sendToBackend RequestHistory
@@ -188,6 +189,12 @@ update msg model =
 
         PromptCopiedMsg ->
             ( { model | promptCopied = False }, Cmd.none )
+
+        HoverDot id ->
+            ( { model | hoveredDot = Just id }, Cmd.none )
+
+        UnhoverDot ->
+            ( { model | hoveredDot = Nothing }, Cmd.none )
 
         Tick t ->
             ( { model | now = t }, Cmd.none )
@@ -789,7 +796,7 @@ viewSite model host =
 
             _ ->
                 Html.text ""
-        , viewScoreChart entries
+        , viewScoreChart model.hoveredDot entries
         , case ( model.status, latestEntry entries ) of
             ( Done report, _ ) ->
                 viewReport model report
@@ -833,8 +840,8 @@ viewSiteHistoryList now entries =
 -- SCORE-OVER-TIME CHART ──────────────────────────────────────────────────────
 
 
-viewScoreChart : List HistoryEntry -> Html FrontendMsg
-viewScoreChart entries =
+viewScoreChart : Maybe Int -> List HistoryEntry -> Html FrontendMsg
+viewScoreChart hoveredId entries =
     if List.length entries < 2 then
         Html.text ""
 
@@ -920,6 +927,15 @@ viewScoreChart entries =
 
             chartBaselineY =
                 height - padBottom + 1
+
+            hoveredPoint =
+                hoveredId
+                    |> Maybe.andThen
+                        (\id ->
+                            points
+                                |> List.filter (\( _, _, e ) -> Time.posixToMillis e.scannedAt == id)
+                                |> List.head
+                        )
         in
         Html.section [ A.class "score-chart" ]
             [ Html.h2 [] [ Html.text "Score over time" ]
@@ -948,6 +964,12 @@ viewScoreChart entries =
                             []
                       ]
                     , List.map chartDot points
+                    , case hoveredPoint of
+                        Just p ->
+                            [ chartTooltip p ]
+
+                        Nothing ->
+                            []
                     ]
                 )
             ]
@@ -1081,21 +1103,14 @@ yAxisLabel padLeft yOf score =
 chartDot : ( Float, Float, HistoryEntry ) -> Svg.Svg FrontendMsg
 chartDot ( x, y, entry ) =
     let
-        label =
-            formatDateTime entry.scannedAt ++ "  ·  " ++ String.fromInt entry.score ++ "/100"
-
-        labelWidth =
-            toFloat (String.length label * 6 + 20)
-
-        tooltipX =
-            x - labelWidth / 2
-
-        tooltipY =
-            y - 36
+        id =
+            Time.posixToMillis entry.scannedAt
     in
     Svg.g
         [ SA.class ("chart-dot chart-dot--" ++ scoreBucket entry.score)
         , Svg.Events.onClick (OpenHistoryEntry entry)
+        , Svg.Events.onMouseOver (HoverDot id)
+        , Svg.Events.onMouseOut UnhoverDot
         ]
         [ Svg.circle
             [ SA.cx (formatFloat x)
@@ -1104,24 +1119,68 @@ chartDot ( x, y, entry ) =
             , SA.class "chart-dot-circle"
             ]
             []
-        , Svg.g [ SA.class "chart-tooltip" ]
-            [ Svg.rect
-                [ SA.x (formatFloat tooltipX)
-                , SA.y (formatFloat tooltipY)
-                , SA.width (formatFloat labelWidth)
-                , SA.height "22"
-                , SA.rx "4"
-                , SA.class "chart-tooltip-bg"
-                ]
-                []
-            , Svg.text_
-                [ SA.x (formatFloat x)
-                , SA.y (formatFloat (tooltipY + 15))
-                , SA.textAnchor "middle"
-                , SA.class "chart-tooltip-text"
-                ]
-                [ Svg.text label ]
+        , Svg.circle
+            [ SA.cx (formatFloat x)
+            , SA.cy (formatFloat y)
+            , SA.r "14"
+            , SA.class "chart-dot-hit"
             ]
+            []
+        ]
+
+
+chartTooltip : ( Float, Float, HistoryEntry ) -> Svg.Svg FrontendMsg
+chartTooltip ( x, y, entry ) =
+    let
+        label =
+            formatDateTime entry.scannedAt ++ "  -  " ++ String.fromInt entry.score ++ "/100"
+
+        labelWidth =
+            170
+
+        viewBoxW =
+            760
+
+        showAbove =
+            y > 56
+
+        boxY =
+            if showAbove then
+                y - 30
+
+            else
+                y + 12
+
+        textY =
+            if showAbove then
+                y - 14
+
+            else
+                y + 28
+
+        boxX =
+            clamp 6 (viewBoxW - labelWidth - 6) (x - labelWidth / 2)
+
+        textCenterX =
+            boxX + labelWidth / 2
+    in
+    Svg.g [ SA.class "chart-tooltip" ]
+        [ Svg.rect
+            [ SA.x (formatFloat boxX)
+            , SA.y (formatFloat boxY)
+            , SA.width (formatFloat labelWidth)
+            , SA.height "20"
+            , SA.rx "4"
+            , SA.class "chart-tooltip-bg"
+            ]
+            []
+        , Svg.text_
+            [ SA.x (formatFloat textCenterX)
+            , SA.y (formatFloat textY)
+            , SA.textAnchor "middle"
+            , SA.class "chart-tooltip-text"
+            ]
+            [ Svg.text label ]
         ]
 
 
@@ -1584,12 +1643,13 @@ button { font: inherit; cursor: pointer; }
 .chart-dot--ok    .chart-dot-circle { stroke: #fbbf24; }
 .chart-dot--warn  .chart-dot-circle { stroke: var(--warn); }
 .chart-dot--bad   .chart-dot-circle { stroke: var(--err); }
-.chart-tooltip {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
+.chart-dot-hit {
+  fill: transparent;
+  pointer-events: all;
 }
-.chart-dot:hover .chart-tooltip { opacity: 1; }
+.chart-tooltip {
+  pointer-events: none;
+}
 .chart-tooltip-bg {
   fill: var(--surface-2);
   stroke: var(--border);

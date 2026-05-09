@@ -19,6 +19,7 @@ type alias FrontendModel =
     , now : Time.Posix
     , excludedIssues : List String
     , promptCopied : Bool
+    , hoveredDot : Maybe Int
     }
 
 
@@ -125,6 +126,8 @@ type FrontendMsg
     | ToggleIssue String
     | CopyFixPrompt String
     | PromptCopiedMsg
+    | HoverDot Int
+    | UnhoverDot
     | Tick Time.Posix
 
 
