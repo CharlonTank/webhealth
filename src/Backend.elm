@@ -4,10 +4,20 @@ import Audit
 import Dict exposing (Dict)
 import Http
 import Lamdera exposing (ClientId, SessionId)
+import RPC
 import Task exposing (Task)
 import Time
 import Types exposing (..)
 import Url
+
+
+forceRpcInclusion : ()
+forceRpcInclusion =
+    let
+        _ =
+            RPC.lamdera_handleEndpoints
+    in
+    ()
 
 
 type alias Model =
