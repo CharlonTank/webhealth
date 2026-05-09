@@ -42,7 +42,8 @@ buildReport now inflight =
             }
 
         categories =
-            [ metaCategory ctx
+            [ diagnosticsCategory ctx
+            , metaCategory ctx
             , contentCategory ctx
             , technicalCategory ctx
             , accessibilityCategory ctx
@@ -124,6 +125,80 @@ header name ctx =
 hasTag : String -> Node -> Bool
 hasTag t n =
     HQ.tagName n == Just (String.toLower t)
+
+
+
+-- ────────────────────────────────────────────────────────────────────────────
+--  CATEGORY: DIAGNOSTICS (debug)
+-- ────────────────────────────────────────────────────────────────────────────
+
+
+diagnosticsCategory : Ctx -> Category
+diagnosticsCategory ctx =
+    let
+        bodyLen =
+            String.length ctx.body
+
+        topNodes =
+            List.length ctx.nodes
+
+        allElems =
+            ctx.nodes |> HQ.allElements |> List.length
+
+        firstTags =
+            ctx.nodes
+                |> HQ.allElements
+                |> List.take 12
+                |> List.filterMap HQ.tagName
+                |> String.join ","
+
+        bodySnippet =
+            String.left 240 ctx.body
+
+        runDocResult =
+            case Html.Parser.runDocument ctx.body of
+                Ok _ ->
+                    "ok"
+
+                Err errs ->
+                    "fail (" ++ String.fromInt (List.length errs) ++ " deadEnds)"
+
+        runResult =
+            case Html.Parser.run ctx.body of
+                Ok ns ->
+                    "ok (" ++ String.fromInt (List.length ns) ++ " top nodes)"
+
+                Err errs ->
+                    "fail (" ++ String.fromInt (List.length errs) ++ " deadEnds)"
+    in
+    { name = "Diagnostics"
+    , checks =
+        [ { id = "diag-body"
+          , name = "HTML body length"
+          , severity = Pass
+          , summary = String.fromInt bodyLen ++ " chars"
+          , affectedResources = [ String.left 200 bodySnippet ]
+          , howToFix = Nothing
+          , extra = []
+          }
+        , { id = "diag-parse"
+          , name = "Parser results"
+          , severity = Pass
+          , summary = "runDocument: " ++ runDocResult ++ " · run: " ++ runResult
+          , affectedResources = []
+          , howToFix = Nothing
+          , extra = []
+          }
+        , { id = "diag-tree"
+          , name = "Parsed tree"
+          , severity = Pass
+          , summary = String.fromInt topNodes ++ " top nodes / " ++ String.fromInt allElems ++ " elements"
+          , affectedResources = [ "first tags: " ++ firstTags ]
+          , howToFix = Nothing
+          , extra = []
+          }
+        ]
+    }
 
 
 
