@@ -15,14 +15,46 @@ import Html.Parser as P exposing (Node(..))
 parse : String -> List Node
 parse html =
     let
+        cleaned =
+            html
+                |> stripScriptsAndStyles
+                |> stripComments
+                |> stripDoctype
+
         attempts =
             [ \() -> documentToNodes (P.runDocument html)
+            , \() -> documentToNodes (P.runDocument (stripScriptsAndStyles html |> stripComments))
             , \() -> P.run html |> Result.toMaybe
-            , \() -> P.run (stripScriptsAndStyles html) |> Result.toMaybe
-            , \() -> P.run (extractHead html ++ extractBody html) |> Result.toMaybe
+            , \() -> P.run cleaned |> Result.toMaybe
+            , \() -> P.run (extractHead cleaned ++ extractBody cleaned) |> Result.toMaybe
             ]
     in
     runAttempts attempts
+
+
+stripComments : String -> String
+stripComments input =
+    stripBlockFrom "<!--" "-->" input 0
+
+
+stripDoctype : String -> String
+stripDoctype input =
+    let
+        lower =
+            String.toLower input
+    in
+    case String.indexes "<!doctype" lower of
+        [] ->
+            input
+
+        idx :: _ ->
+            case String.indexes ">" (String.dropLeft idx input) of
+                [] ->
+                    input
+
+                gtRel :: _ ->
+                    String.left idx input
+                        ++ String.dropLeft (idx + gtRel + 1) input
 
 
 runAttempts : List (() -> Maybe (List Node)) -> List Node
