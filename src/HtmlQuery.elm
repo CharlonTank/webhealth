@@ -34,7 +34,43 @@ parse html =
 
 stripComments : String -> String
 stripComments input =
-    stripBlockFrom "<!--" "-->" input 0
+    stripDelimitedFrom "<!--" "-->" input 0
+
+
+stripDelimitedFrom : String -> String -> String -> Int -> String
+stripDelimitedFrom open close input cursor =
+    let
+        lower =
+            String.toLower (String.dropLeft cursor input)
+    in
+    case String.indexes open lower of
+        [] ->
+            input
+
+        relStart :: _ ->
+            let
+                openStart =
+                    cursor + relStart
+
+                afterOpenLower =
+                    String.toLower (String.dropLeft (openStart + String.length open) input)
+            in
+            case String.indexes close afterOpenLower of
+                [] ->
+                    input
+
+                relClose :: _ ->
+                    let
+                        closeEnd =
+                            openStart + String.length open + relClose + String.length close
+
+                        kept =
+                            String.left openStart input
+
+                        rebuilt =
+                            kept ++ String.dropLeft closeEnd input
+                    in
+                    stripDelimitedFrom open close rebuilt openStart
 
 
 stripDoctype : String -> String
