@@ -1,0 +1,5 @@
+elm-stuff/
+.lamdera/
+node_modules/
+.DS_Store
+*.log
