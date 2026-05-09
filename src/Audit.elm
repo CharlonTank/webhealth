@@ -42,8 +42,7 @@ buildReport now inflight =
             }
 
         categories =
-            [ diagnosticsCategory ctx
-            , metaCategory ctx
+            [ metaCategory ctx
             , contentCategory ctx
             , technicalCategory ctx
             , accessibilityCategory ctx
@@ -1391,8 +1390,18 @@ check id name sev summary fix =
 
 findMeta : String -> List Node -> Maybe String
 findMeta name nodes =
-    HQ.findAll (hasTag "meta") nodes
-        |> List.filter (\n -> HQ.attr "name" n |> Maybe.map String.toLower |> (==) (Just (String.toLower name)))
+    let
+        target =
+            String.toLower name
+
+        match attribute n =
+            HQ.attr attribute n |> Maybe.map String.toLower |> (==) (Just target)
+
+        metas =
+            HQ.findAll (hasTag "meta") nodes
+    in
+    metas
+        |> List.filter (\n -> match "name" n || match "property" n)
         |> List.head
         |> Maybe.andThen (HQ.attr "content")
 
