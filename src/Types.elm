@@ -55,6 +55,7 @@ type alias ProbeResult =
 type Page
     = Home
     | HistoryPage
+    | SitePage String
 
 
 type AuditStatus

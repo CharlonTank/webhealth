@@ -11,6 +11,9 @@ import Html.Events as E
 import Lamdera
 import Ports
 import Process
+import Svg
+import Svg.Attributes as SA
+import Svg.Events
 import Task
 import Time
 import Types exposing (..)
@@ -60,11 +63,43 @@ init url key =
 pageOf : Url -> Page
 pageOf url =
     case url.path of
+        "/" ->
+            Home
+
         "/history" ->
             HistoryPage
 
-        _ ->
-            Home
+        path ->
+            let
+                slug =
+                    String.dropLeft 1 path
+                        |> stripTrailingSlash
+            in
+            if isHostLike slug then
+                SitePage slug
+
+            else
+                Home
+
+
+stripTrailingSlash : String -> String
+stripTrailingSlash s =
+    if String.endsWith "/" s then
+        String.dropRight 1 s
+
+    else
+        s
+
+
+isHostLike : String -> Bool
+isHostLike s =
+    String.contains "." s
+        && String.all isHostChar s
+
+
+isHostChar : Char -> Bool
+isHostChar c =
+    Char.isAlphaNum c || c == '.' || c == '-'
 
 
 update : FrontendMsg -> Model -> ( Model, Cmd FrontendMsg )
@@ -92,26 +127,44 @@ update msg model =
                 ( model, Cmd.none )
 
             else
+                let
+                    host =
+                        hostFromInput model.urlInput
+                in
                 ( { model
                     | status = Running model.urlInput
                     , excludedIssues = []
                     , promptCopied = False
+                    , page = Maybe.map SitePage host |> Maybe.withDefault model.page
                   }
-                , Lamdera.sendToBackend (RequestAudit model.urlInput)
+                , Cmd.batch
+                    [ Lamdera.sendToBackend (RequestAudit model.urlInput)
+                    , case host of
+                        Just h ->
+                            Nav.pushUrl model.key ("/" ++ h)
+
+                        Nothing ->
+                            Cmd.none
+                    ]
                 )
 
         HistoryQueryChanged q ->
             ( { model | historyQuery = q }, Cmd.none )
 
         OpenHistoryEntry entry ->
+            let
+                host =
+                    hostFromInput entry.finalUrl
+                        |> orElse (hostFromInput entry.url)
+            in
             ( { model
-                | page = Home
+                | page = Maybe.map SitePage host |> Maybe.withDefault Home
                 , urlInput = entry.url
                 , status = Done entry.report
                 , excludedIssues = []
                 , promptCopied = False
               }
-            , Nav.pushUrl model.key "/"
+            , Nav.pushUrl model.key (Maybe.map (\h -> "/" ++ h) host |> Maybe.withDefault "/")
             )
 
         ToggleIssue id ->
@@ -150,13 +203,59 @@ updateFromBackend msg model =
             ( { model | status = Running url }, Cmd.none )
 
         AuditCompleted report ->
-            ( { model | status = Done report, urlInput = report.url }, Cmd.none )
+            let
+                host =
+                    hostFromInput report.finalUrl
+                        |> orElse (hostFromInput report.url)
+
+                navCmd =
+                    case ( host, model.page ) of
+                        ( Just h, SitePage current ) ->
+                            if current == h then
+                                Cmd.none
+
+                            else
+                                Nav.pushUrl model.key ("/" ++ h)
+
+                        ( Just h, _ ) ->
+                            Nav.pushUrl model.key ("/" ++ h)
+
+                        ( Nothing, _ ) ->
+                            Cmd.none
+            in
+            ( { model | status = Done report, urlInput = report.url }, navCmd )
 
         AuditFailed err ->
             ( { model | status = Failed err }, Cmd.none )
 
         HistoryUpdated entries ->
             ( { model | history = entries }, Cmd.none )
+
+
+hostFromInput : String -> Maybe String
+hostFromInput raw =
+    let
+        trimmed =
+            String.trim raw
+
+        withScheme =
+            if String.startsWith "http://" trimmed || String.startsWith "https://" trimmed then
+                trimmed
+
+            else
+                "https://" ++ trimmed
+    in
+    Url.fromString withScheme |> Maybe.map .host
+
+
+orElse : Maybe a -> Maybe a -> Maybe a
+orElse fallback m =
+    case m of
+        Just _ ->
+            m
+
+        Nothing ->
+            fallback
 
 
 
@@ -179,6 +278,9 @@ view model =
 
                     HistoryPage ->
                         viewHistory model
+
+                    SitePage host ->
+                        viewSite model host
                 ]
             , viewFooter
             ]
@@ -648,6 +750,235 @@ viewHistoryEntry now entry =
         ]
 
 
+-- SITE PAGE ──────────────────────────────────────────────────────────────────
+
+
+viewSite : Model -> String -> Html FrontendMsg
+viewSite model host =
+    let
+        entries =
+            entriesForHost host model.history
+    in
+    Html.div [ A.class "site" ]
+        [ Html.section [ A.class "site-head" ]
+            [ Html.div []
+                [ Html.h1 [ A.class "site-host" ] [ Html.text host ]
+                , Html.p [ A.class "site-sub" ]
+                    [ Html.text
+                        (String.fromInt (List.length entries)
+                            ++ (if List.length entries == 1 then
+                                    " audit recorded"
+
+                                else
+                                    " audits recorded"
+                               )
+                        )
+                    ]
+                ]
+            , viewUrlForm model
+            ]
+        , case model.status of
+            Running u ->
+                viewRunning u
+
+            Failed err ->
+                Html.section [ A.class "panel panel--error" ]
+                    [ Html.h2 [] [ Html.text "Audit failed" ]
+                    , Html.p [] [ Html.text err ]
+                    ]
+
+            _ ->
+                Html.text ""
+        , viewScoreChart entries
+        , case ( model.status, latestEntry entries ) of
+            ( Done report, _ ) ->
+                viewReport model report
+
+            ( _, Just entry ) ->
+                viewReport model entry.report
+
+            _ ->
+                Html.section [ A.class "panel" ]
+                    [ Html.p [] [ Html.text "No audits for this host yet. Type a URL above and run one." ] ]
+        , if List.length entries > 1 then
+            viewSiteHistoryList model.now entries
+
+          else
+            Html.text ""
+        ]
+
+
+entriesForHost : String -> List HistoryEntry -> List HistoryEntry
+entriesForHost host entries =
+    entries
+        |> List.filter (\e -> domainOf e.finalUrl == host || domainOf e.url == host)
+
+
+latestEntry : List HistoryEntry -> Maybe HistoryEntry
+latestEntry entries =
+    -- entries are stored most-recent-first
+    List.head entries
+
+
+viewSiteHistoryList : Time.Posix -> List HistoryEntry -> Html FrontendMsg
+viewSiteHistoryList now entries =
+    Html.section [ A.class "site-history" ]
+        [ Html.h2 [] [ Html.text "All audits" ]
+        , Html.div [ A.class "history-list" ]
+            (List.map (viewHistoryEntry now) entries)
+        ]
+
+
+
+-- SCORE-OVER-TIME CHART ──────────────────────────────────────────────────────
+
+
+viewScoreChart : List HistoryEntry -> Html FrontendMsg
+viewScoreChart entries =
+    if List.length entries < 2 then
+        Html.text ""
+
+    else
+        let
+            chronological =
+                entries
+                    |> List.sortBy (.scannedAt >> Time.posixToMillis)
+
+            width =
+                760
+
+            height =
+                220
+
+            padLeft =
+                42
+
+            padRight =
+                16
+
+            padTop =
+                14
+
+            padBottom =
+                32
+
+            innerW =
+                width - padLeft - padRight
+
+            innerH =
+                height - padTop - padBottom
+
+            timestamps =
+                chronological |> List.map (.scannedAt >> Time.posixToMillis)
+
+            tMin =
+                List.minimum timestamps |> Maybe.withDefault 0
+
+            tMax =
+                List.maximum timestamps |> Maybe.withDefault (tMin + 1)
+
+            tSpan =
+                max 1 (tMax - tMin)
+
+            xOf t =
+                toFloat padLeft + toFloat (t - tMin) / toFloat tSpan * toFloat innerW
+
+            yOf score =
+                toFloat padTop + (1 - toFloat score / 100) * toFloat innerH
+
+            points =
+                chronological
+                    |> List.map
+                        (\e ->
+                            ( xOf (Time.posixToMillis e.scannedAt), yOf e.score, e )
+                        )
+
+            polylinePts =
+                points
+                    |> List.map (\( x, y, _ ) -> formatFloat x ++ "," ++ formatFloat y)
+                    |> String.join " "
+
+            yLabels =
+                [ 0, 25, 50, 75, 100 ]
+        in
+        Html.section [ A.class "score-chart" ]
+            [ Html.h2 [] [ Html.text "Score over time" ]
+            , Svg.svg
+                [ SA.viewBox ("0 0 " ++ String.fromInt width ++ " " ++ String.fromInt height)
+                , SA.class "chart-svg"
+                , SA.preserveAspectRatio "none"
+                ]
+                (List.concat
+                    [ List.map (gridLine padLeft (width - padRight) yOf) yLabels
+                    , List.map (yAxisLabel padLeft yOf) yLabels
+                    , [ Svg.polyline
+                            [ SA.points polylinePts
+                            , SA.class "chart-line"
+                            , SA.fill "none"
+                            ]
+                            []
+                      ]
+                    , List.map chartDot points
+                    ]
+                )
+            ]
+
+
+gridLine : Int -> Int -> (Int -> Float) -> Int -> Svg.Svg msg
+gridLine x1_ x2_ yOf score =
+    Svg.line
+        [ SA.x1 (String.fromInt x1_)
+        , SA.x2 (String.fromInt x2_)
+        , SA.y1 (formatFloat (yOf score))
+        , SA.y2 (formatFloat (yOf score))
+        , SA.class "chart-grid"
+        ]
+        []
+
+
+yAxisLabel : Int -> (Int -> Float) -> Int -> Svg.Svg msg
+yAxisLabel padLeft yOf score =
+    Svg.text_
+        [ SA.x (String.fromInt (padLeft - 8))
+        , SA.y (formatFloat (yOf score + 4))
+        , SA.class "chart-axis-label"
+        , SA.textAnchor "end"
+        ]
+        [ Svg.text (String.fromInt score) ]
+
+
+chartDot : ( Float, Float, HistoryEntry ) -> Svg.Svg FrontendMsg
+chartDot ( x, y, entry ) =
+    Svg.g
+        [ SA.class ("chart-dot chart-dot--" ++ scoreBucket entry.score)
+        , Svg.Events.onClick (OpenHistoryEntry entry)
+        ]
+        [ Svg.circle
+            [ SA.cx (formatFloat x)
+            , SA.cy (formatFloat y)
+            , SA.r "5"
+            , SA.class "chart-dot-circle"
+            ]
+            []
+        , Svg.title []
+            [ Svg.text
+                (String.fromInt entry.score
+                    ++ " · "
+                    ++ entry.url
+                )
+            ]
+        ]
+
+
+formatFloat : Float -> String
+formatFloat f =
+    String.fromFloat (toFloat (round (f * 10)) / 10)
+
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+
+
 scoreBucket : Int -> String
 scoreBucket s =
     if s >= 90 then
@@ -988,6 +1319,68 @@ button { font: inherit; cursor: pointer; }
 .history-counts .w { color: var(--warn); }
 .history-counts .e { color: var(--err); }
 .empty { color: var(--text-dim); }
+
+.site { display: flex; flex-direction: column; gap: 24px; }
+.site-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 24px 0 8px;
+}
+.site-host {
+  font-size: 32px;
+  margin: 0;
+  letter-spacing: -0.02em;
+  word-break: break-all;
+}
+.site-sub { color: var(--text-dim); margin: 4px 0 0; font-size: 14px; }
+.site-head .url-form { max-width: 420px; flex: 1 1 320px; }
+
+.score-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px 24px 16px;
+}
+.score-chart h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.chart-svg { width: 100%; height: 220px; display: block; }
+.chart-grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 2 4; }
+.chart-axis-label {
+  fill: var(--text-dim);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.chart-line { stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; fill: none; }
+.chart-dot { cursor: pointer; }
+.chart-dot-circle {
+  fill: var(--bg);
+  stroke: var(--accent);
+  stroke-width: 2;
+  transition: r 120ms ease;
+}
+.chart-dot:hover .chart-dot-circle { r: 7; }
+.chart-dot--great .chart-dot-circle { stroke: var(--pass); }
+.chart-dot--ok    .chart-dot-circle { stroke: #fbbf24; }
+.chart-dot--warn  .chart-dot-circle { stroke: var(--warn); }
+.chart-dot--bad   .chart-dot-circle { stroke: var(--err); }
+
+.site-history h2 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
 
 .api-section {
   margin-top: 56px;
