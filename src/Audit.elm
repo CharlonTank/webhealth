@@ -42,8 +42,7 @@ buildReport now inflight =
             }
 
         categories =
-            [ metaListCategory ctx
-            , metaCategory ctx
+            [ metaCategory ctx
             , contentCategory ctx
             , technicalCategory ctx
             , accessibilityCategory ctx
