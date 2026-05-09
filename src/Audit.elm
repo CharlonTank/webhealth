@@ -469,19 +469,25 @@ faviconCheck ctx =
                 |> List.head
                 |> Maybe.andThen (HQ.attr "href")
     in
-    case ( href, ctx.favicon ) of
-        ( Nothing, _ ) ->
+    case href of
+        Nothing ->
             check "favicon" "Favicon" Warning "No <link rel=\"icon\"> declared. Browsers will fall back to /favicon.ico." (Just "Declare a favicon explicitly with <link rel=\"icon\" href=\"...\">")
 
-        ( Just h, Just probe ) ->
-            if probe.status >= 200 && probe.status < 400 then
-                check "favicon" "Favicon" Pass ("Favicon found and reachable: " ++ h ++ " (HTTP " ++ String.fromInt probe.status ++ ").") Nothing
+        Just h ->
+            if String.startsWith "data:" h then
+                check "favicon" "Favicon" Pass "Favicon inlined as a data URI." Nothing
 
             else
-                check "favicon" "Favicon" Warning ("Favicon declared but returned HTTP " ++ String.fromInt probe.status ++ ".") (Just "Make the favicon URL reachable with HTTP 200.")
+                case ctx.favicon of
+                    Just probe ->
+                        if probe.status >= 200 && probe.status < 400 then
+                            check "favicon" "Favicon" Pass ("Favicon found and reachable: " ++ h ++ " (HTTP " ++ String.fromInt probe.status ++ ").") Nothing
 
-        ( Just h, Nothing ) ->
-            check "favicon" "Favicon" Warning ("Favicon declared (" ++ h ++ ") but probe was inconclusive.") Nothing
+                        else
+                            check "favicon" "Favicon" Warning ("Favicon declared (" ++ h ++ ") but " ++ probe.url ++ " returned HTTP " ++ String.fromInt probe.status ++ ".") (Just "Make the favicon URL reachable with HTTP 200.")
+
+                    Nothing ->
+                        check "favicon" "Favicon" Warning ("Favicon declared (" ++ h ++ ") but probe was inconclusive.") Nothing
 
 
 viewportCheck : Ctx -> Check
