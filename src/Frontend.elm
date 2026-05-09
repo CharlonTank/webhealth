@@ -267,7 +267,56 @@ viewHome model =
 
             Done report ->
                 viewReport model report
+        , viewApiSection
         ]
+
+
+viewApiSection : Html msg
+viewApiSection =
+    Html.section [ A.class "api-section" ]
+        [ Html.h2 [] [ Html.text "Run from CLI, Claude, or any agent" ]
+        , Html.p [ A.class "api-lead" ]
+            [ Html.text "POST a URL, poll until ready. JSON response. No auth, no API key." ]
+        , Html.h3 [] [ Html.text "Trigger an audit" ]
+        , codeBlock "curl -X POST https://webhealth.lamdera.app/_r/audit \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"https://your-site.com\"}'"
+        , Html.h3 [] [ Html.text "Response — audit running" ]
+        , codeBlock "{\"status\":\"running\",\"retry_in_seconds\":8,\"url\":\"https://your-site.com\"}"
+        , Html.h3 [] [ Html.text "Response — audit ready (poll the same endpoint after ~10 seconds)" ]
+        , codeBlock "{\n  \"status\": \"ready\",\n  \"report\": {\n    \"url\": \"https://your-site.com\",\n    \"finalUrl\": \"https://your-site.com/\",\n    \"score\": 97,\n    \"passed\": 33, \"warnings\": 1, \"errors\": 0,\n    \"perceivedLoadMs\": 317, \"totalTestMs\": 4788,\n    \"categories\": [\n      { \"name\": \"Rendering Architecture\", \"checks\": [\n          { \"id\": \"rendering-mode\", \"name\": \"Rendering Mode\",\n            \"severity\": \"pass\",\n            \"summary\": \"Server-rendered HTML — visible to all clients.\",\n            \"affectedResources\": [], \"howToFix\": null, \"extra\": [] }\n      ] },\n      { \"name\": \"Meta Information\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Content Structure\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Technical Optimization\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Accessibility Basics\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Social & Rich Results\", \"checks\": [ /* … */ ] },\n      { \"name\": \"Links Analysis\", \"checks\": [ /* … */ ] }\n    ]\n  }\n}"
+        , Html.h3 [] [ Html.text "One-liner: poll until ready" ]
+        , codeBlock "while r=$(curl -s -X POST https://webhealth.lamdera.app/_r/audit \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"url\":\"https://your-site.com\"}') \\\n  && [ \"$(echo \"$r\" | jq -r .status)\" != \"ready\" ]\ndo sleep 8; done\necho \"$r\" | jq .report"
+        , Html.h3 [] [ Html.text "Each individual check has this shape" ]
+        , codeBlock "{\n  \"id\": \"title-tag\",\n  \"name\": \"Title Tag\",\n  \"severity\": \"pass\",            // \"pass\" | \"warning\" | \"error\"\n  \"summary\": \"Found 44 characters. Length is optimal.\",\n  \"affectedResources\": [],\n  \"howToFix\": null,\n  \"extra\": []\n}"
+        , Html.div [ A.class "api-tips" ]
+            [ Html.h3 [] [ Html.text "Tips" ]
+            , Html.ul []
+                [ Html.li []
+                    [ Html.text "The first audit for a URL is cached. To force a fresh re-audit after deploying fixes, vary the URL with a query string: "
+                    , Html.code [] [ Html.text "https://your-site.com?_t=42" ]
+                    , Html.text " then bump the number."
+                    ]
+                , Html.li []
+                    [ Html.text "The audit fetches your page twice in parallel — once with a browser User-Agent, once with Googlebot — to detect bot-cloaked SSR. Structural checks (h1, headings, landmarks) operate on whichever view actually has content." ]
+                , Html.li []
+                    [ Html.text "Severity values are "
+                    , Html.code [] [ Html.text "\"pass\"" ]
+                    , Html.text ", "
+                    , Html.code [] [ Html.text "\"warning\"" ]
+                    , Html.text ", "
+                    , Html.code [] [ Html.text "\"error\"" ]
+                    , Html.text ". Score is a 0-100 weighted average."
+                    ]
+                , Html.li []
+                    [ Html.text "Lighthouse-style runtime metrics (LCP, CLS, TBT, JS errors) are not available — those need a headless browser. Everything here is server-side static analysis." ]
+                ]
+            ]
+        ]
+
+
+codeBlock : String -> Html msg
+codeBlock content =
+    Html.pre [ A.class "api-code" ]
+        [ Html.code [] [ Html.text content ] ]
 
 
 viewUrlForm : Model -> Html FrontendMsg
@@ -939,6 +988,59 @@ button { font: inherit; cursor: pointer; }
 .history-counts .w { color: var(--warn); }
 .history-counts .e { color: var(--err); }
 .empty { color: var(--text-dim); }
+
+.api-section {
+  margin-top: 56px;
+  padding: 28px 32px 32px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.api-section h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+  letter-spacing: -0.01em;
+}
+.api-lead { color: var(--text-dim); margin: 0 0 20px; }
+.api-section h3 {
+  margin: 24px 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.api-section p { color: var(--text-dim); margin: 8px 0; }
+.api-section ul { margin: 8px 0 0; padding-left: 18px; color: var(--text-dim); }
+.api-section li { margin-bottom: 6px; line-height: 1.55; }
+.api-section li code,
+.api-section p code,
+.api-tips code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--text);
+}
+.api-code {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 8px 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+.api-code code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre;
+}
+.api-tips { margin-top: 28px; }
 
 .site-footer {
   text-align: center;
