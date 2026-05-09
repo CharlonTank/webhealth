@@ -9,6 +9,7 @@ import Html exposing (Html)
 import Html.Attributes as A
 import Html.Events as E
 import Lamdera
+import Ports
 import Process
 import Task
 import Time
@@ -124,9 +125,12 @@ update msg model =
             in
             ( { model | excludedIssues = excluded }, Cmd.none )
 
-        CopyFixPrompt _ ->
+        CopyFixPrompt prompt ->
             ( { model | promptCopied = True }
-            , Process.sleep 2000 |> Task.perform (\_ -> PromptCopiedMsg)
+            , Cmd.batch
+                [ Ports.copyToClipboard prompt
+                , Process.sleep 2000 |> Task.perform (\_ -> PromptCopiedMsg)
+                ]
             )
 
         PromptCopiedMsg ->
@@ -496,15 +500,13 @@ viewFixPrompt model report =
             , Html.textarea
                 [ A.class "fix-text"
                 , A.readonly True
-                , A.id "fix-prompt-textarea"
+                , A.value prompt
                 , A.rows 8
                 ]
-                [ Html.text prompt ]
+                []
             , Html.button
                 [ A.class "primary"
                 , E.onClick (CopyFixPrompt prompt)
-                , A.attribute "onclick"
-                    "navigator.clipboard.writeText(document.getElementById('fix-prompt-textarea').value)"
                 ]
                 [ Html.text
                     (if model.promptCopied then
